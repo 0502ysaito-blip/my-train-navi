@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>メトロ回避ナビ</title>
+    <style>
+        :root { --yurakucho: #c1a470; --namboku: #00ac9a; --bg: #f5f7fa; }
+        body { font-family: sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+        .container { width: 100%; max-width: 400px; }
+        
+        /* 運行情報エリア */
+        .status-card { background: #fff; border-radius: 12px; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .line { display: flex; align-items: center; margin: 8px 0; font-size: 0.85rem; }
+        .badge { width: 22px; height: 22px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; margin-right: 10px; }
+        .status-text { flex: 1; color: #333; }
+
+        /* ボタン */
+        .label { font-size: 0.75rem; color: #777; margin: 15px 0 5px 5px; font-weight: bold; }
+        .btn-list { display: flex; flex-direction: column; gap: 10px; }
+        .route-btn {
+            background: #fff; border: 1px solid #eee; height: 60px; border-radius: 10px;
+            padding: 0 15px; font-size: 0.82rem; font-weight: bold; text-align: left;
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05); cursor: pointer;
+        }
+        .route-btn:active { background: #f0f0f0; }
+
+        /* 結果 */
+        #result { margin-top: 20px; padding: 15px; background: #34495e; color: #fff; border-radius: 12px; display: none; }
+        .car-num { font-size: 1.8rem; color: #f1c40f; font-weight: bold; text-align: center; margin: 8px 0; }
+        .reason { font-size: 0.78rem; color: #ecf0f1; line-height: 1.5; }
+
+        .update-at { font-size: 0.6rem; color: #999; text-align: center; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="status-card">
+        <div class="line">
+            <div class="badge" style="background:var(--yurakucho)">Y</div>
+            <div id="y-stat" class="status-text">有楽町線：取得中...</div>
+        </div>
+        <div class="line">
+            <div class="badge" style="background:var(--namboku)">N</div>
+            <div id="n-stat" class="status-text">南北線：取得中...</div>
+        </div>
+    </div>
+
+    <div class="label">【往路】</div>
+    <div class="btn-list">
+        <button class="route-btn" onclick="check('地下鉄成増', '飯田橋', 'Y')">地下鉄成増 → 飯田橋</button>
+        <button class="route-btn" onclick="check('飯田橋', '六本木一丁目', 'N')">飯田橋 → 六本木一丁目</button>
+    </div>
+
+    <div class="label">【復路】</div>
+    <div class="btn-list">
+        <button class="route-btn" onclick="check('六本木一丁目', '飯田橋', 'N')">六本木一丁目 → 飯田橋</button>
+        <button class="route-btn" onclick="check('飯田橋', '地下鉄成増', 'Y')">飯田橋 → 地下鉄成増</button>
+    </div>
+
+    <div id="result">
+        <div id="res-route" style="font-size: 0.7rem; opacity: 0.7;"></div>
+        <div class="car-num" id="res-car"></div>
+        <div class="reason" id="res-desc"></div>
+    </div>
+
+    <div id="update-time" class="update-at"></div>
+</div>
+
+<script>
+    // 先ほどデプロイしたGASのURLを入れる
+    const GAS_URL = "ここにGASのウェブアプリURLを貼り付け"; 
+
+    // 運行情報の取得（リアルタイム）
+    async function fetchStatus() {
+        try {
+            const res = await fetch(GAS_URL);
+            const data = await res.json();
+            document.getElementById('y-stat').innerText = "有楽町線：" + data.yurakucho;
+            document.getElementById('n-stat').innerText = "南北線：" + data.namboku;
+            document.getElementById('update-time').innerText = "更新: " + data.timestamp;
+        } catch (e) {
+            document.getElementById('y-stat').innerText = "有楽町線：平常運転（推定）";
+            document.getElementById('n-stat').innerText = "南北線：平常運転（推定）";
+        }
+    }
+
+    // 推論ロジック
+    function check(from, to, line) {
+        const hour = new Date().getHours();
+        const isNight = (hour >= 21 || hour < 5);
+        let car, desc;
+
+        if (line === 'Y') {
+            if (from === '地下鉄成増') {
+                car = isNight ? "2号車" : "10号車";
+                desc = isNight ? "夜間は飯田橋駅出口に近い前方へ。" : "朝は飯田橋の階段混雑を避けるため最後尾が空いています。";
+            } else {
+                car = isNight ? "1号車" : "8号車";
+                desc = isNight ? "地下鉄成増駅の改札に最も近い車両です。" : "日中は階段から離れた8号車が座りやすいです。";
+            }
+        } else {
+            if (from === '飯田橋') {
+                car = isNight ? "6号車" : "1号車";
+                desc = isNight ? "六本木一丁目駅の出口に近い後方が便利。" : "飯田橋で最も端の1号車が統計的に空いています。";
+            } else {
+                car = isNight ? "1号車" : "4号車";
+                desc = isNight ? "飯田橋駅の出口に近い前方車両です。" : "中程の4号車が乗降バランスが良くおすすめです。";
+            }
+        }
+
+        const res = document.getElementById('result');
+        res.style.display = 'block';
+        document.getElementById('res-route').innerText = from + " → " + to;
+        document.getElementById('res-car').innerText = car;
+        document.getElementById('res-desc').innerText = desc;
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+
+    fetchStatus();
+    setInterval(fetchStatus, 60000); // 1分更新
+</script>
+
+</body>
+</html>
