@@ -71,7 +71,7 @@
 
 <script>
     // 先ほどデプロイしたGASのURLを入れる
-    const GAS_URL = "ここにGASのウェブアプリURLを貼り付け"; 
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxVnv02KSVRiq8Wo0M0XmrNdYU7TRE77MKol1O0CL1qSdgsBvGE9gUz8bygqW-wX2FZ/exec"; 
 
     // 運行情報の取得（リアルタイム）
     async function fetchStatus() {
